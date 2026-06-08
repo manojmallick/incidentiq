@@ -11,7 +11,8 @@ saves the reporting obligations, and logs the audit trail. ~Seconds vs ~2 hours 
 > human-in-the-loop approval gate → audit trail.
 
 ## 🔴 Live demo
-- **App:** https://incidentiq-starter.vercel.app
+- **App (Google Cloud Run):** https://incidentiq-908307939543.europe-west1.run.app
+- **Mirror (Vercel):** https://incidentiq-starter.vercel.app
 - **Login (password-gated demo):** `judge` / `IncidentIQ2026-f5707254`
 - Click **Judge Tour** in the top bar for a guided, end-to-end walkthrough.
 
@@ -91,7 +92,7 @@ npm start                    # → http://localhost:8080
 
 ## Health check (proof for judges)
 ```bash
-curl -u judge:<password> https://incidentiq-starter.vercel.app/health
+curl -u judge:<password> https://incidentiq-908307939543.europe-west1.run.app/health
 # { "status":"ok", "model":"gemini-3-flash-preview", "partner":"elastic", "partner_mcp_connected":true, "indexed":128, ... }
 ```
 

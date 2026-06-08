@@ -1,0 +1,10 @@
+node_modules
+.env
+.git
+.vercel
+.personal
+*.log
+.DS_Store
+stitch_incidentiq_dora_compliance_center
+evals
+APP_IMPROVEMENT_PLAN.md

@@ -157,7 +157,7 @@
       <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-gutter mb-xl">
         <div class="bg-[#0F1218] border border-[#1D2433] border-t-2 border-red-500/50 p-lg rounded-xl flex flex-col justify-between hover:bg-[#161B25] transition-colors"><span class="text-label-caps font-label-caps text-on-surface-variant">Open Incidents</span><div class="flex items-baseline gap-sm mt-sm"><span id="m-open" class="text-headline-lg font-headline-lg text-red-400">—</span><span class="text-body-sm text-on-surface-variant/60">Active now</span></div></div>
         <div class="bg-[#0F1218] border border-[#1D2433] border-t-2 border-amber-500/50 p-lg rounded-xl flex flex-col justify-between hover:bg-[#161B25] transition-colors"><span class="text-label-caps font-label-caps text-on-surface-variant">DORA Major Today</span><div class="flex items-baseline gap-sm mt-sm"><span id="m-major" class="text-headline-lg font-headline-lg text-amber-400">—</span><span class="text-body-sm text-on-surface-variant/60">Classification: Pending</span></div></div>
-        <div class="bg-[#0F1218] border border-[#1D2433] border-t-2 border-green-500/50 p-lg rounded-xl flex flex-col justify-between hover:bg-[#161B25] transition-colors"><span class="text-label-caps font-label-caps text-on-surface-variant">Classified in &lt;1min</span><div class="flex items-baseline gap-sm mt-sm"><span class="text-headline-lg font-headline-lg text-green-400">94%</span><span class="text-body-sm text-on-surface-variant/60">+2.1% from avg</span></div></div>
+        <div class="bg-[#0F1218] border border-[#1D2433] border-t-2 border-green-500/50 p-lg rounded-xl flex flex-col justify-between hover:bg-[#161B25] transition-colors"><span class="text-label-caps font-label-caps text-on-surface-variant">Last Classify</span><div class="flex items-baseline gap-sm mt-sm"><span id="m-latency" class="text-headline-lg font-headline-lg text-green-400">—</span><span class="text-body-sm text-on-surface-variant/60">end-to-end</span></div></div>
         <div class="bg-[#0F1218] border border-[#1D2433] border-t-2 border-primary/50 p-lg rounded-xl flex flex-col justify-between hover:bg-[#161B25] transition-colors"><span class="text-label-caps font-label-caps text-on-surface-variant">Precedents Indexed</span><div class="flex items-baseline gap-sm mt-sm"><span id="m-indexed" class="text-headline-lg font-headline-lg text-primary">—</span><span class="text-body-sm text-on-surface-variant/60">Vector space (kNN)</span></div></div>
       </section>
 
@@ -176,8 +176,8 @@
             <h3 class="text-label-caps font-label-caps text-on-surface-variant mb-md">Results Summary</h3>
             <div class="space-y-sm mb-lg">
               <div class="flex justify-between items-center text-body-sm"><span class="text-on-surface-variant">Indexed Precedents</span><span id="m-indexed2" class="text-on-surface">—</span></div>
-              <div class="flex justify-between items-center text-body-sm"><span class="text-on-surface-variant">Execution Time</span><span class="text-on-surface">24ms</span></div>
-              <div class="flex justify-between items-center text-body-sm"><span class="text-on-surface-variant">Clusters Scanned</span><span class="text-on-surface">prod-eu, prod-us</span></div>
+              <div class="flex justify-between items-center text-body-sm"><span class="text-on-surface-variant">Vector dims (kNN)</span><span class="text-on-surface font-mono-code">768 · cosine</span></div>
+              <div class="flex justify-between items-center text-body-sm"><span class="text-on-surface-variant">Index</span><span class="text-on-surface font-mono-code">ict-incidents</span></div>
             </div>
             <div class="pt-lg border-t border-outline-variant">
               <h3 class="text-label-caps font-label-caps text-on-surface-variant mb-md">System Health</h3>
@@ -286,7 +286,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt
 const fmt = (iso) => iso ? new Date(iso).toLocaleString("en-GB",{timeZone:"Europe/Amsterdam",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
 const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString("en-GB",{timeZone:"Europe/Amsterdam",hour:"2-digit",minute:"2-digit"}) + " CET" : "—";
 const THRESH = { clients_pct: 10, value_eur: 5_000_000 };
-let pending = null, countdownTimer = null, reportReady = false, healthCache = null, incidentsCache = [];
+let pending = null, countdownTimer = null, reportReady = false, healthCache = null, incidentsCache = [], lastElapsed = null;
+function updateLatencyCard(){ const el = $("m-latency"); if (!el || lastElapsed == null) return; el.textContent = lastElapsed >= 1000 ? (lastElapsed/1000).toFixed(1) + "s" : lastElapsed + "ms"; }
 
 // ============ ROUTER ============
 const ROUTES = {
@@ -372,6 +373,7 @@ function renderFeed(){
   const incidents = incidentsCache;
   $("m-open").textContent = incidents.filter(i => i.status === "open").length;
   $("m-major").textContent = incidents.filter(i => i.dora_classification === "MAJOR").length;
+  updateLatencyCard();
   const filtered = applyFilter(incidents);
   $("feed").innerHTML = filtered.map(renderRow).join("") ||
     `<div class="bg-[#0F1218] border border-[#1D2433] rounded-xl p-lg text-on-surface-variant text-body-sm flex items-center gap-sm"><span class="material-symbols-outlined text-[18px]">filter_alt_off</span> No incidents match the "${esc(currentFilter)}" filter.</div>`;
@@ -538,6 +540,7 @@ async function classifyIncident(incident){
 }
 
 function renderReport(d){
+  if (d.elapsed_ms != null) { lastElapsed = d.elapsed_ms; updateLatencyCard(); }
   const v = d.verdict || {}, inc = d.incident || {}, rec = d.recurrence || {}, prec = d.precedent || {};
   const isMajor = v.classification === "MAJOR";
   const conf = Math.round((d.confidence||0)*100);

@@ -1,0 +1,11 @@
+.personal
+.env
+*.log
+.DS_Store
+stitch_incidentiq_dora_compliance_center
+evals
+agent-builder
+APP_IMPROVEMENT_PLAN.md
+Dockerfile
+node_modules
+.vercel

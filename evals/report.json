@@ -1,0 +1,120 @@
+{
+  "ran_at": "2026-06-05T00:34:08.719Z",
+  "ruleset_version": "DORA-RTS-2025.1",
+  "classification": {
+    "total": 12,
+    "correct": 12,
+    "accuracy": 1,
+    "precision": 1,
+    "recall": 1,
+    "confusion_matrix": {
+      "TP": 6,
+      "TN": 6,
+      "FP": 0,
+      "FN": 0
+    },
+    "rows": [
+      {
+        "name": "High transaction value",
+        "expected": "MAJOR",
+        "got": "MAJOR",
+        "ok": true
+      },
+      {
+        "name": "Just under value threshold",
+        "expected": "MINOR",
+        "got": "MINOR",
+        "ok": true
+      },
+      {
+        "name": "Clients >10% for >2h",
+        "expected": "MAJOR",
+        "got": "MAJOR",
+        "ok": true
+      },
+      {
+        "name": "Clients >10% but only 1h (below duration)",
+        "expected": "MINOR",
+        "got": "MINOR",
+        "ok": true
+      },
+      {
+        "name": "Payments down >30min",
+        "expected": "MAJOR",
+        "got": "MAJOR",
+        "ok": true
+      },
+      {
+        "name": "Payments down 20min (below)",
+        "expected": "MINOR",
+        "got": "MINOR",
+        "ok": true
+      },
+      {
+        "name": "Core banking down >2h",
+        "expected": "MAJOR",
+        "got": "MAJOR",
+        "ok": true
+      },
+      {
+        "name": "Customer data breach",
+        "expected": "MAJOR",
+        "got": "MAJOR",
+        "ok": true
+      },
+      {
+        "name": "Minor latency blip",
+        "expected": "MINOR",
+        "got": "MINOR",
+        "ok": true
+      },
+      {
+        "name": "Empty / unknown incident",
+        "expected": "MINOR",
+        "got": "MINOR",
+        "ok": true
+      },
+      {
+        "name": "Multi-trigger (value + payments)",
+        "expected": "MAJOR",
+        "got": "MAJOR",
+        "ok": true
+      },
+      {
+        "name": "Borderline clients exactly 10% (not >10%)",
+        "expected": "MINOR",
+        "got": "MINOR",
+        "ok": true
+      }
+    ]
+  },
+  "recurrence": {
+    "total": 3,
+    "correct": 3,
+    "rows": [
+      {
+        "name": "Recurrent minors escalate to MAJOR in aggregate",
+        "count": 6,
+        "expected": true,
+        "got": true,
+        "ok": true
+      },
+      {
+        "name": "Below recurrence threshold stays MINOR",
+        "count": 3,
+        "expected": false,
+        "got": false,
+        "ok": true
+      },
+      {
+        "name": "Exactly at threshold escalates",
+        "count": 5,
+        "expected": true,
+        "got": true,
+        "ok": true
+      }
+    ]
+  },
+  "target": 0.95,
+  "passed": true
+}

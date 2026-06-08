@@ -1,0 +1,35 @@
+{
+  "description": "Golden DORA classification cases for IncidentIQ. The classifier in src/criteria.js is deterministic, so these produce a real, reproducible accuracy number. Verify thresholds against the final DORA RTS before trusting in production.",
+  "ruleset_version": "DORA-RTS-2025.1",
+  "cases": [
+    { "name": "High transaction value", "expected": "MAJOR",
+      "incident": { "transaction_value_eur": 8300000, "clients_affected_pct": 2, "duration_min": 10 } },
+    { "name": "Just under value threshold", "expected": "MINOR",
+      "incident": { "transaction_value_eur": 4900000, "clients_affected_pct": 1, "duration_min": 5 } },
+    { "name": "Clients >10% for >2h", "expected": "MAJOR",
+      "incident": { "clients_affected_pct": 15.2, "duration_min": 130, "transaction_value_eur": 0 } },
+    { "name": "Clients >10% but only 1h (below duration)", "expected": "MINOR",
+      "incident": { "clients_affected_pct": 15.2, "duration_min": 60, "transaction_value_eur": 0 } },
+    { "name": "Payments down >30min", "expected": "MAJOR",
+      "incident": { "payments_down_min": 47, "clients_affected_pct": 3, "duration_min": 47 } },
+    { "name": "Payments down 20min (below)", "expected": "MINOR",
+      "incident": { "payments_down_min": 20, "clients_affected_pct": 3, "duration_min": 20 } },
+    { "name": "Core banking down >2h", "expected": "MAJOR",
+      "incident": { "core_banking_down_min": 150, "clients_affected_pct": 4, "duration_min": 150 } },
+    { "name": "Customer data breach", "expected": "MAJOR",
+      "incident": { "data_breach": true, "clients_affected_pct": 1, "duration_min": 5 } },
+    { "name": "Minor latency blip", "expected": "MINOR",
+      "incident": { "clients_affected_pct": 2, "duration_min": 8, "transaction_value_eur": 1000 } },
+    { "name": "Empty / unknown incident", "expected": "MINOR",
+      "incident": {} },
+    { "name": "Multi-trigger (value + payments)", "expected": "MAJOR",
+      "incident": { "transaction_value_eur": 9000000, "payments_down_min": 40, "clients_affected_pct": 12, "duration_min": 130 } },
+    { "name": "Borderline clients exactly 10% (not >10%)", "expected": "MINOR",
+      "incident": { "clients_affected_pct": 10, "duration_min": 130, "transaction_value_eur": 0 } }
+  ],
+  "recurrence_cases": [
+    { "name": "Recurrent minors escalate to MAJOR in aggregate", "count": 6, "expected_escalate": true },
+    { "name": "Below recurrence threshold stays MINOR", "count": 3, "expected_escalate": false },
+    { "name": "Exactly at threshold escalates", "count": 5, "expected_escalate": true }
+  ]
+}

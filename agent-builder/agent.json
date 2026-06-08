@@ -1,0 +1,22 @@
+{
+  "_comment": "Google Cloud Agent Builder definition for the JUDGED IncidentIQ agent: Gemini 3 + Elastic MCP / Agent Builder endpoint. Import via the Agent Builder console or gcloud (see README). The Express app in src/ mirrors this for the hosted demo UI.",
+  "displayName": "IncidentIQ",
+  "model": "gemini-3",
+  "description": "DORA incident precedent search + classifier: finds similar past ICT incidents in Elasticsearch via ES|QL + hybrid vector search, applies DORA Art.17 criteria informed by precedent, and proposes storing the classification + creating deadline alerts, gated on human approval.",
+  "instruction": "You are IncidentIQ. For a new ICT incident: (1) use the elastic tool to find similar historical incidents with hybrid search (kNN on description_vector + keyword match) and aggregate impact metrics with ES|QL; (2) apply DORA Art.17 thresholds (>10% clients >2h, >€5M, data breach, core banking >2h, payments >30min) and weigh the precedent classification rate; (3) if borderline, classify MAJOR; (4) compute reporting deadlines from the incident start; (5) do NOT write the classification back to Elasticsearch or create Kibana deadline alerts until the human approves — present the precedents, the verdict, and the deadlines and wait.",
+  "tools": [
+    {
+      "type": "mcp",
+      "mcpServer": {
+        "command": "npx",
+        "args": ["@elastic/mcp-server-elasticsearch"],
+        "env": { "ES_URL": "${ELASTIC_URL}", "ES_API_KEY": "${ELASTIC_API_KEY}" }
+      },
+      "exposedTools": ["esql_query", "search", "esql_aggregation", "index_document", "create_alert"]
+    }
+  ],
+  "humanInTheLoop": {
+    "requireApprovalFor": ["index_document", "create_alert"],
+    "_comment": "Consequential index writes + alert creation pause for human approval — maps to the UI ApprovalBar and the 'keep you in control' rule."
+  }
+}

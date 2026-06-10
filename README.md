@@ -1,5 +1,19 @@
 # IncidentIQ — DORA Major-Incident Triage Agent
 
+<p>
+<a href="https://incidentiq-908307939543.europe-west1.run.app"><img alt="Live demo" src="https://img.shields.io/badge/live%20demo-online-00BFB3?style=flat-square&logo=googlecloud&logoColor=white"></a>
+<img alt="Gemini 3" src="https://img.shields.io/badge/Gemini%203-gemini--3--flash--preview-4285F4?style=flat-square&logo=google&logoColor=white">
+<img alt="Google Cloud Agent Builder" src="https://img.shields.io/badge/Google%20Cloud-Agent%20Builder%20%C2%B7%20Vertex%20AI%20Agent%20Engine-4285F4?style=flat-square&logo=googlecloud&logoColor=white">
+<img alt="Elastic MCP" src="https://img.shields.io/badge/Elastic-MCP%20server-00BFB3?style=flat-square&logo=elastic&logoColor=white">
+<img alt="Cloud Run" src="https://img.shields.io/badge/Cloud%20Run-deployed-4285F4?style=flat-square&logo=googlecloud&logoColor=white">
+<img alt="Node" src="https://img.shields.io/badge/Node-20-339933?style=flat-square&logo=nodedotjs&logoColor=white">
+<img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
+</p>
+
+> **Google Cloud Rapid Agent Hackathon — Elastic track.** Gemini + Google Cloud Agent Builder + the Elastic MCP server, all invoked **at runtime** (no competing AI/cloud).
+
+📐 [Architecture](ARCHITECTURE.md) · 🎨 [Design system](DESIGN_SYSTEM.md) · 🪧 [Pitch deck](DECK.md) ([PDF](DECK.pdf)) · 🖼️ [Diagram](architecture.png)
+
 When a new ICT incident hits a financial entity, IncidentIQ **reasons, plans, and acts**:
 it searches similar past incidents in Elasticsearch (hybrid kNN + keyword), classifies the
 incident against **DORA Art.18** thresholds informed by precedent and the recurring-incident
@@ -11,9 +25,9 @@ saves the reporting obligations, and logs the audit trail. ~Seconds vs ~2 hours 
 > human-in-the-loop approval gate → audit trail.
 
 ## 🔴 Live demo
-- **App (Google Cloud Run):** https://incidentiq-908307939543.europe-west1.run.app
-- **Login (password-gated demo):** `judge` / `IncidentIQ2026-f5707254`
+- **App (Google Cloud Run) — open, no login:** https://incidentiq-908307939543.europe-west1.run.app
 - Click **Judge Tour** in the top bar for a guided, end-to-end walkthrough.
+- **30-second "wow":** on the dashboard, click the *"DB warning: connection pool at 85% saturation"* card — a zero-impact warning. IncidentIQ returns **MAJOR**, because it's the 6th PaymentProcessing incident in 30 days (the DORA recurring-incident rule most tools miss).
 
 ## Stack (Google Cloud Rapid Agent Hackathon — Elastic bucket)
 - 🧠 **Gemini 3** (`gemini-3-flash-preview`) — classification rationale + drafts the DNB submission (real `@google/genai` calls, [`src/agent.js`](src/agent.js))
@@ -111,7 +125,7 @@ Set the printed `AGENT_ENGINE_ID` on the Node app. Then `/api/classify` routes i
 
 ## Health check (proof for judges)
 ```bash
-curl -u judge:<password> https://incidentiq-908307939543.europe-west1.run.app/health
+curl https://incidentiq-908307939543.europe-west1.run.app/health
 # { "status":"ok", "mode":"live", "model":"gemini-3-flash-preview", "partner":"elastic",
 #   "partner_mcp_connected":true,     # ← true only when the Elastic MCP child is connected + search routes through it
 #   "agent_builder_connected":true,   # ← true only when the Vertex AI Agent Engine deployment is reachable

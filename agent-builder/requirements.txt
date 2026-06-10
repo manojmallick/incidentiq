@@ -1,0 +1,4 @@
+# Deps for the IncidentIQ ADK agent + its Agent Engine deployment.
+google-adk>=1.0.0
+google-cloud-aiplatform[agent_engines]>=1.148.0
+mcp>=1.13.0

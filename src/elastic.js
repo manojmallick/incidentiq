@@ -1,9 +1,13 @@
 // Elasticsearch integration — the partner capability.
 //
-// The JUDGED agent reaches Elasticsearch through the Elastic MCP / Agent Builder
-// endpoint inside Google Cloud Agent Builder (see agent-builder/agent.json). This
-// module mirrors the same reads/writes via the Elasticsearch REST API (ES|QL + hybrid
-// search + index) so the hosted web app runs end-to-end.
+// Precedent SEARCH runs through the official Elastic MCP server at runtime
+// (elastic-mcp.js → @elastic/mcp-server-elasticsearch `search` tool). That MCP server
+// (v0.3.x) is read-only and has no ES|QL/write tool, so ES|QL aggregation and the
+// human-approved index writes use the Elasticsearch REST API here. REST also backs
+// search as a fallback if the MCP child process can't start, keeping the app live.
+// The same agent is defined for Google Cloud Agent Builder in agent-builder/agent.json.
+
+import { mcpSearch } from "./elastic-mcp.js";
 
 const URL = process.env.ELASTIC_URL;
 const KEY = process.env.ELASTIC_API_KEY;
@@ -31,8 +35,20 @@ export async function findSimilar(queryVector, text, { k = 5, excludeId } = {}) 
   };
   // kNN only when an embedding vector is available; otherwise keyword-only search.
   if (queryVector) body.knn = { field: "description_vector", query_vector: queryVector, k, num_candidates: 100, ...(exclude ? { filter: exclude } : {}) };
+
+  // PRIMARY: run the search through the partner's Elastic MCP server (genuinely invoked).
+  // The MCP `search` tool returns hits in relevance order but doesn't expose _score, so we
+  // attach a 1-based `rank` (the meaningful, non-fabricated ordering signal) alongside it.
+  try {
+    const viaMcp = await mcpSearch(INDEX, body);
+    if (viaMcp) return viaMcp.map((h, i) => ({ rank: i + 1, score: h.score ?? null, ...h }));
+  } catch (e) {
+    console.warn("[MCP] search failed, falling back to REST:", e.message);
+  }
+
+  // FALLBACK: Elasticsearch REST API (keeps the app live if MCP can't start). _score is real here.
   const d = await es(`/${INDEX}/_search`, { method: "POST", body: JSON.stringify(body) });
-  return (d.hits?.hits || []).map((h) => ({ score: h._score, ...h._source }));
+  return (d.hits?.hits || []).map((h, i) => ({ rank: i + 1, score: h._score, ...h._source }));
 }
 
 // Canned open-incident feed for the dashboard in MOCK mode (mirrors the Stitch design).

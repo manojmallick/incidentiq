@@ -5,6 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { analyze, analyzeFromDetection, executeProposed } from "./agent.js";
 import { esql, pingElastic, listObligations, listOpenIncidents, countIncidents } from "./elastic.js";
+import { mcpConnected } from "./elastic-mcp.js";
+import { agentEngineConfigured, agentEngineConnected, queryAgentEngine } from "./agent-engine.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "../public"); // absolute → works on Vercel too
@@ -32,13 +34,22 @@ app.use(express.static(PUBLIC_DIR));
 
 // --- Health: proves the required stack is wired ---
 app.get("/health", async (_req, res) => {
+  const mock = process.env.MOCK === "true";
   res.json({
     status: "ok",
     service: "incidentiq",
     version: "2.0.0",
+    mode: mock ? "mock" : "live",
     model: process.env.GEMINI_MODEL || "gemini-3",
     partner: "elastic",
-    partner_mcp_connected: await pingElastic(),
+    // Truthful: true only when the @elastic/mcp-server-elasticsearch child process is
+    // connected and search is routing through it. REST connectivity is reported separately.
+    partner_mcp_connected: mock ? false : await mcpConnected(),
+    elastic_rest_connected: await pingElastic(),
+    // Google Cloud Agent Builder: true only when a Vertex AI Agent Engine deployment is wired
+    // (AGENT_ENGINE_ID) and reachable. When false, classify uses the direct Gemini path.
+    agent_builder_configured: agentEngineConfigured(),
+    agent_builder_connected: await agentEngineConnected(),
     indexed: await countIncidents(),
     agents: ["ElasticSearcher", "DORAAnalyst"],
     regulations: ["DORA Art.18", "DORA Art.19", "DORA Art.28"],
@@ -77,6 +88,16 @@ app.post("/api/execute", async (req, res) => {
   if (!approved) return res.status(403).json({ error: "human approval required" });
   try { res.json(await executeProposed(payload)); }
   catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// --- Proof endpoint: run the FULL deployed Agent Builder agent (Gemini 3 + Elastic MCP on
+//     Vertex AI Agent Engine) end-to-end for a single message. 503 if no deployment is wired. ---
+app.post("/api/agent", async (req, res) => {
+  if (!agentEngineConfigured()) return res.status(503).json({ error: "AGENT_ENGINE_ID not configured" });
+  const message = req.body?.message || req.body?.description;
+  if (!message) return res.status(400).json({ error: "message or description required" });
+  try { res.json({ via: "vertex-ai-agent-engine", response: await queryAgentEngine(message) }); }
+  catch (e) { res.status(502).json({ error: String(e.message || e) }); }
 });
 
 // --- Shared obligation ledger (JSON; ?format=csv to export) ---

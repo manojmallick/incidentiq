@@ -1,6 +1,10 @@
 node_modules
+**/.venv
+agent-builder
+**/__pycache__
 .env
 .git
+.gcloudignore
 .vercel
 .personal
 *.log

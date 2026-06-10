@@ -1,0 +1,15 @@
+# Keep the Cloud Run (Node) build context small. The Python ADK agent + its venv are only
+# used to DEPLOY the Agent Engine, not to run the Node app.
+.git
+node_modules/
+**/.venv/
+agent-builder/.venv/
+.env
+*.log
+.DS_Store
+.vercel
+.personal
+stitch_incidentiq_dora_compliance_center
+APP_IMPROVEMENT_PLAN.md
+__pycache__/
+**/__pycache__/

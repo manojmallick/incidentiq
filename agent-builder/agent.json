@@ -7,16 +7,17 @@
   "tools": [
     {
       "type": "mcp",
+      "_comment": "Official Elastic MCP server. exposedTools lists the tools it ACTUALLY provides in v0.3.x (read-only: search/list_indices/get_mappings/get_shards). The hosted app spawns this same server over stdio at runtime (src/elastic-mcp.js → `search`). OTEL_SDK_DISABLED keeps the stdio JSON-RPC channel clean of the EDOT banner.",
       "mcpServer": {
         "command": "npx",
         "args": ["@elastic/mcp-server-elasticsearch"],
-        "env": { "ES_URL": "${ELASTIC_URL}", "ES_API_KEY": "${ELASTIC_API_KEY}" }
+        "env": { "ES_URL": "${ELASTIC_URL}", "ES_API_KEY": "${ELASTIC_API_KEY}", "OTEL_SDK_DISABLED": "true" }
       },
-      "exposedTools": ["esql_query", "search", "esql_aggregation", "index_document", "create_alert"]
+      "exposedTools": ["search", "list_indices", "get_mappings", "get_shards"]
     }
   ],
   "humanInTheLoop": {
-    "requireApprovalFor": ["index_document", "create_alert"],
-    "_comment": "Consequential index writes + alert creation pause for human approval — maps to the UI ApprovalBar and the 'keep you in control' rule."
+    "requireApprovalFor": ["store_classification", "create_alert"],
+    "_comment": "The Elastic MCP server v0.3.x is READ-ONLY (no index/alert tool), so the consequential writes — store classification, save obligations, create deadline alerts — are performed by the application layer (src/agent.js executeProposed) via the Elasticsearch REST API, and are gated on human approval (the UI ApprovalBar / POST /api/execute with approved:true)."
   }
 }

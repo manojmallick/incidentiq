@@ -16,6 +16,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { findSimilar, recurrenceCount, recordObligations, recordAudit } from "./elastic.js";
 import { classify, deadlines, precedentSignal, recurrenceEscalation, reportingObligations } from "./criteria.js";
+import { agentEngineConfigured, explainViaAgentEngine } from "./agent-engine.js";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3";
 const EMBED = process.env.EMBEDDING_MODEL || "text-embedding-004";
@@ -138,23 +139,37 @@ export async function analyze(rawIncident) {
   const dl = deadlines(incident.start);
 
   let drafted;
-  try {
-    const res = await ai.models.generateContent({
-      model: MODEL,
-      config: { systemInstruction: EXPLAIN_SYSTEM, responseMimeType: "application/json" },
-      contents:
-        `NEW INCIDENT:\n${JSON.stringify(incident, null, 2)}\n\n` +
-        `CLASSIFICATION:\n${JSON.stringify(verdict)}\n\n` +
-        `RECURRENCE:\n${JSON.stringify(recurrence)}\n\n` +
-        `PRECEDENTS:\n${JSON.stringify(similar, null, 2)}\n\nDEADLINES:\n${JSON.stringify(dl)}`,
-    });
-    try { drafted = JSON.parse(res.text); } catch { drafted = { rationale: res.text, submission: "", confidence: 0.5 }; }
-    steps.push({ agent: "DORAAnalyst", action: `${MODEL} explained + drafted DNB submission`, ms: Date.now() - t0 });
-  } catch (e) {
-    // Gemini unreachable (e.g. gemini-3 not yet allowlisted → 404). Stay live with a deterministic draft.
-    drafted = deterministicDraft(incident, verdict, dl, similar, precedent);
-    const why = String(e.message || e).split("\n")[0].slice(0, 60);
-    steps.push({ agent: "DORAAnalyst", action: `${MODEL} unavailable (${why}) → deterministic DNB draft`, ms: Date.now() - t0 });
+  // Preferred when an Agent Builder deployment is wired (AGENT_ENGINE_ID): run the explain +
+  // DNB-draft through the deployed ADK agent (Gemini 3 + Elastic MCP on Vertex AI Agent Engine).
+  if (agentEngineConfigured()) {
+    try {
+      drafted = await explainViaAgentEngine({ incident, verdict, recurrence, similar, deadlines: dl });
+      steps.push({ agent: "AgentBuilder", action: `Vertex AI Agent Engine (Gemini + Elastic MCP) explained + drafted DNB submission`, ms: Date.now() - t0 });
+    } catch (e) {
+      const why = String(e.message || e).split("\n")[0].slice(0, 60);
+      steps.push({ agent: "AgentBuilder", action: `Agent Engine unavailable (${why}) → direct ${MODEL}`, ms: Date.now() - t0 });
+    }
+  }
+  // Direct Gemini fallback (and the default when no Agent Engine is deployed).
+  if (!drafted) {
+    try {
+      const res = await ai.models.generateContent({
+        model: MODEL,
+        config: { systemInstruction: EXPLAIN_SYSTEM, responseMimeType: "application/json" },
+        contents:
+          `NEW INCIDENT:\n${JSON.stringify(incident, null, 2)}\n\n` +
+          `CLASSIFICATION:\n${JSON.stringify(verdict)}\n\n` +
+          `RECURRENCE:\n${JSON.stringify(recurrence)}\n\n` +
+          `PRECEDENTS:\n${JSON.stringify(similar, null, 2)}\n\nDEADLINES:\n${JSON.stringify(dl)}`,
+      });
+      try { drafted = JSON.parse(res.text); } catch { drafted = { rationale: res.text, submission: "", confidence: 0.5 }; }
+      steps.push({ agent: "DORAAnalyst", action: `${MODEL} explained + drafted DNB submission`, ms: Date.now() - t0 });
+    } catch (e) {
+      // Gemini unreachable (e.g. gemini-3 not yet allowlisted → 404). Stay live with a deterministic draft.
+      drafted = deterministicDraft(incident, verdict, dl, similar, precedent);
+      const why = String(e.message || e).split("\n")[0].slice(0, 60);
+      steps.push({ agent: "DORAAnalyst", action: `${MODEL} unavailable (${why}) → deterministic DNB draft`, ms: Date.now() - t0 });
+    }
   }
 
   const defensibility = buildDefensibility({ incident, verdict, precedent, recurrence, similar, confidence: drafted.confidence });

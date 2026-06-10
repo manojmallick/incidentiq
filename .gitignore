@@ -4,3 +4,7 @@ node_modules/
 .DS_Store
 .personal
 .vercel
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/

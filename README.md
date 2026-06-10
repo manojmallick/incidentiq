@@ -12,21 +12,21 @@ saves the reporting obligations, and logs the audit trail. ~Seconds vs ~2 hours 
 
 ## 🔴 Live demo
 - **App (Google Cloud Run):** https://incidentiq-908307939543.europe-west1.run.app
-- **Mirror (Vercel):** https://incidentiq-starter.vercel.app
 - **Login (password-gated demo):** `judge` / `IncidentIQ2026-f5707254`
 - Click **Judge Tour** in the top bar for a guided, end-to-end walkthrough.
 
 ## Stack (Google Cloud Rapid Agent Hackathon — Elastic bucket)
-- 🧠 **Gemini 3** (`gemini-3-flash-preview`) — classification rationale + drafts the DNB submission
-- 🏗️ **Google Cloud Agent Builder** — agent definition ([`agent-builder/agent.json`](agent-builder/agent.json))
-- 🔍 **Elasticsearch via Elastic MCP** — ES|QL + hybrid kNN/keyword search + gated index writes *(load-bearing)*
+- 🧠 **Gemini 3** (`gemini-3-flash-preview`) — classification rationale + drafts the DNB submission (real `@google/genai` calls, [`src/agent.js`](src/agent.js))
+- 🏗️ **Google Cloud Agent Builder** — the ADK agent in [`agent-builder/incidentiq_agent/`](agent-builder/incidentiq_agent/) (Gemini 3 + Elastic MCP toolset) deploys to **Vertex AI Agent Engine**; when `AGENT_ENGINE_ID` is set the app invokes it at runtime via `reasoningEngines:streamQuery` ([`src/agent-engine.js`](src/agent-engine.js)) for the explain + DNB-draft step *(verifiable in `/health` as `agent_builder_connected`)*
+- 🔍 **Elastic MCP server** (`@elastic/mcp-server-elasticsearch`) — **spawned over stdio at runtime** ([`src/elastic-mcp.js`](src/elastic-mcp.js)); hybrid kNN + keyword precedent search runs through its `search` tool *(load-bearing — verifiable in `/health` as `partner_mcp_connected`)*
 - 🔢 **`gemini-embedding-001`** (768-dim) — query + corpus vectors for kNN
+- ↪️ The MCP server v0.3.x is **read-only** (no ES|QL/write tool), so ES|QL aggregation and the human-approved index writes use the Elasticsearch REST API ([`src/elastic.js`](src/elastic.js)) — which also backs search as a fallback if the MCP child can't start.
 
 ## Architecture
 ```
 Browser (public/index.html) ──POST /api/classify──► agent (src/agent.js)
   1. embed incident            → gemini-embedding-001 (768d)
-  2. hybrid precedent search    → Elastic (ES|QL + kNN over 100+ incidents)
+  2. hybrid precedent search    → Elastic MCP server `search` tool (kNN + keyword), REST fallback
   3. classify + recurrence      → criteria.js (DORA Art.18 thresholds + aggregate rule)
   4. explain + draft submission → Gemini 3 (cites precedents; deterministic fallback)
   5. defensibility + deadlines  → version-stamped record, Art.19 timeline
@@ -34,7 +34,9 @@ Browser (public/index.html) ──POST /api/classify──► agent (src/agent.j
 ApprovalBar (human approves) ──POST /api/execute──► Elastic writes + obligations ledger + audit log
 ```
 The **judged** agent is [`agent-builder/agent.json`](agent-builder/agent.json) (Gemini 3 + Elastic
-MCP, writes require approval). The Express app mirrors it via the Elastic REST API so the hosted UI runs end-to-end.
+MCP, writes require approval). The hosted Express app invokes the **same Elastic MCP server at runtime**
+for precedent search ([`src/elastic-mcp.js`](src/elastic-mcp.js)) and uses the Elastic REST API for ES|QL
+aggregation + the human-approved writes (tools the read-only MCP server doesn't expose).
 
 ## Two agents
 - **ElasticSearcher** — embeds the incident, runs hybrid kNN + keyword precedent search, aggregates impact via ES|QL.
@@ -55,6 +57,7 @@ MCP, writes require approval). The Express app mirrors it via the Elastic REST A
 | `GET /health` | proves the stack is wired (`model`, `partner_mcp_connected`, `indexed`) |
 | `GET /api/incidents` | open incidents via ES|QL |
 | `POST /api/classify` | steps 1–5 (read-only): search → classify → draft |
+| `POST /api/agent` | runs the full deployed Agent Builder agent (Gemini 3 + Elastic MCP) for a message |
 | `POST /api/ingest` | cross-app detection handoff → classify |
 | `POST /api/execute` | step 6 (gated on `approved:true`): writes + obligations + audit |
 | `GET /api/obligations/:companyId` | shared ledger (`?format=csv` to export) |
@@ -87,17 +90,53 @@ npm start                    # → http://localhost:8080
 | `MOCK=true` | run the full UI with canned data, no credentials |
 
 ## Deploy
-- **Vercel (live):** `vercel --prod` (serverless via [`api/index.js`](api/index.js) + [`vercel.json`](vercel.json)); env vars set in the project.
-- **Google Cloud Run:** `gcloud run deploy incidentiq --source . --region=europe-west1 --allow-unauthenticated --set-env-vars="GEMINI_MODEL=gemini-3-flash-preview,..." ` (Dockerfile included).
+- **Google Cloud Run (primary):** `gcloud run deploy incidentiq --source . --region=europe-west1 --allow-unauthenticated --set-env-vars="GEMINI_MODEL=gemini-3-flash-preview,..."` (Dockerfile included). Cloud Run keeps the container warm, so the Elastic MCP child process is spawned once and reused.
+- The MCP server runs as a child process and needs to stay alive across requests, so a long-lived host (Cloud Run) is the supported target rather than per-request serverless.
+
+### Deploy the Agent Builder agent (Vertex AI Agent Engine)
+The [`agent-builder/incidentiq_agent/`](agent-builder/incidentiq_agent/) ADK agent (Gemini 3 + Elastic MCP toolset) is the runtime form of [`agent.json`](agent-builder/agent.json):
+```bash
+cd agent-builder
+pip install -r requirements.txt
+gcloud auth application-default login
+export GOOGLE_CLOUD_PROJECT=... GOOGLE_CLOUD_LOCATION=us-central1 STAGING_BUCKET=gs://your-bucket
+export ELASTIC_URL=... ELASTIC_API_KEY=...
+python deploy.py            # prints AGENT_ENGINE_ID=projects/.../reasoningEngines/123
+```
+Set the printed `AGENT_ENGINE_ID` on the Node app. Then `/api/classify` routes its explain + DNB-draft through the deployed agent, and `POST /api/agent {"message": "..."}` runs the full agent end-to-end for judges. `/health` shows `agent_builder_connected: true`.
+
+> **Runtime caveat:** the Elastic MCP server is a Node package (`npx`). The managed Agent Engine (Python) runtime has no Node, so by default the deployed ADK agent runs tool-free and receives the MCP-fetched precedents in its prompt (the Node app does the Elastic MCP search). To give the deployed agent its own Elastic MCP tool, deploy with `adk deploy cloud_run` (a container that includes Node) and set `ELASTIC_MCP_IN_AGENT=true`. See [`agent-builder/deploy.py`](agent-builder/deploy.py).
+
+> **Model note:** the deployed Agent Engine agent runs **`gemini-2.5-flash`** (a Vertex-GA Gemini), because `gemini-3-flash-preview` is served by the Gemini Developer API, not as a Vertex regional publisher model. The app's direct path still uses `gemini-3-flash-preview`. Both are Gemini; the split is purely about where each model is available.
 
 ## Health check (proof for judges)
 ```bash
 curl -u judge:<password> https://incidentiq-908307939543.europe-west1.run.app/health
-# { "status":"ok", "model":"gemini-3-flash-preview", "partner":"elastic", "partner_mcp_connected":true, "indexed":128, ... }
+# { "status":"ok", "mode":"live", "model":"gemini-3-flash-preview", "partner":"elastic",
+#   "partner_mcp_connected":true,     # ← true only when the Elastic MCP child is connected + search routes through it
+#   "agent_builder_connected":true,   # ← true only when the Vertex AI Agent Engine deployment is reachable
+#   "elastic_rest_connected":true, "indexed":128, ... }
 ```
 
 ## Evals
 `npm run eval` runs the golden classification set in [`evals/`](evals/).
+
+## Learnings
+- **An MCP server's stdout is sacred.** The Elastic MCP server bundles EDOT
+  (`@elastic/opentelemetry-node`), whose bootstrap banner prints to **stdout** — the same
+  channel the JSON-RPC protocol uses — silently corrupting every message. Setting
+  `OTEL_SDK_DISABLED=true` in the child env was the difference between "connected" and a
+  stream of Zod validation errors.
+- **Read the partner server before trusting the docs.** The Elastic MCP server v0.3.x is
+  **read-only** (`search`, `list_indices`, `get_mappings`, `get_shards`) — no ES|QL or write
+  tool. We split the work honestly: search through MCP, ES|QL + gated writes through REST,
+  rather than claiming tools that don't exist.
+- **Design for graceful degradation.** Every external hop (Gemini, embeddings, the MCP child)
+  has a fallback so a single failure degrades a feature instead of taking down the agent — and
+  `/health` reports what's *actually* connected, not what we wish were.
+- **DORA's hardest rule is the one tools skip:** individually-minor incidents that recur on a
+  service aggregate to a *major* incident. Encoding that (ES|QL `STATS` over a 30-day window)
+  was where the domain depth lived.
 
 ## License
 MIT — see [LICENSE](LICENSE).

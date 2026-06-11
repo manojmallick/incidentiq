@@ -12,7 +12,7 @@
 
 > **Google Cloud Rapid Agent Hackathon — Elastic track.** Gemini + Google Cloud Agent Builder + the Elastic MCP server, all invoked **at runtime** (no competing AI/cloud).
 
-📐 [Architecture](ARCHITECTURE.md) · 🎨 [Design system](DESIGN_SYSTEM.md) · 🪧 [Pitch deck](DECK.md) ([PDF](DECK.pdf)) · 🖼️ [Diagram](architecture.png) · 📸 [Gallery](SCREENSHOTS.md)
+📐 [Architecture](ARCHITECTURE.md) · 🎨 [Design system](DESIGN_SYSTEM.md) · 🪧 [Pitch deck](DECK.md) ([PDF](DECK.pdf)) · 🖼️ [Diagram](architecture.png) · 📸 [Gallery](SCREENSHOTS.md) · 🎬 [Demo video plan](DEMO_VIDEO.md)
 
 ![A harmless 85% warning classified MAJOR via the DORA recurrence rule](screenshots/02-recurrence-major.png)
 

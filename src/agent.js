@@ -72,6 +72,20 @@ function deterministicDraft(incident, verdict, dl, similar, precedent) {
   return { rationale, submission, confidence: isMajor ? 0.82 : 0.7 };
 }
 
+/** Coerce a DNB submission into a readable EBA/DORA text block (it may arrive as an object). */
+function submissionToText(sub) {
+  if (sub == null || sub === "") return "";
+  if (typeof sub === "string") return sub;
+  const label = (k) => k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const val = (v) => {
+    if (v == null) return "—";
+    if (Array.isArray(v)) return v.join(", ");
+    if (typeof v === "object") return Object.entries(v).map(([k, x]) => `${label(k)} ${x}`).join("; ");
+    return String(v);
+  };
+  return ["EARLY WARNING — DORA Art.19", ...Object.entries(sub).map(([k, v]) => `${label(k)}: ${val(v)}`)].join("\n");
+}
+
 /** Map a raw incident object to a normalized incident for classification. */
 function normalize(input = {}) {
   return {
@@ -171,6 +185,11 @@ export async function analyze(rawIncident) {
       steps.push({ agent: "DORAAnalyst", action: `${MODEL} unavailable (${why}) → deterministic DNB draft`, ms: Date.now() - t0 });
     }
   }
+
+  // The Agent Engine sometimes returns `submission` as a structured object (EBA/DORA template
+  // fields) rather than a string. Render it as a clean regulator-style text block so the UI
+  // never shows "[object Object]". (Direct-Gemini/deterministic/mock paths already return text.)
+  drafted.submission = submissionToText(drafted.submission);
 
   const defensibility = buildDefensibility({ incident, verdict, precedent, recurrence, similar, confidence: drafted.confidence });
   const obligations = verdict.classification === "MAJOR" ? reportingObligations(incident, dl) : [];

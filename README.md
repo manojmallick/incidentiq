@@ -12,7 +12,9 @@
 
 > **Google Cloud Rapid Agent Hackathon — Elastic track.** Gemini + Google Cloud Agent Builder + the Elastic MCP server, all invoked **at runtime** (no competing AI/cloud).
 
-📐 [Architecture](ARCHITECTURE.md) · 🎨 [Design system](DESIGN_SYSTEM.md) · 🪧 [Pitch deck](DECK.md) ([PDF](DECK.pdf)) · 🖼️ [Diagram](architecture.png)
+📐 [Architecture](ARCHITECTURE.md) · 🎨 [Design system](DESIGN_SYSTEM.md) · 🪧 [Pitch deck](DECK.md) ([PDF](DECK.pdf)) · 🖼️ [Diagram](architecture.png) · 📸 [Gallery](SCREENSHOTS.md)
+
+![A harmless 85% warning classified MAJOR via the DORA recurrence rule](screenshots/02-recurrence-major.png)
 
 When a new ICT incident hits a financial entity, IncidentIQ **reasons, plans, and acts**:
 it searches similar past incidents in Elasticsearch (hybrid kNN + keyword), classifies the

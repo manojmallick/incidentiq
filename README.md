@@ -105,6 +105,24 @@ npm start                    # → http://localhost:8080
 | `APP_PASSWORD` (+ `APP_USERNAME`) | optional HTTP basic-auth gate (set on public deploys) |
 | `MOCK=true` | run the full UI with canned data, no credentials |
 
+Also read from the environment (all optional):
+
+| Var | Notes |
+|---|---|
+| `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GENAI_USE_VERTEXAI` | Vertex AI path (region default `europe-west1`); `GEMINI_API_KEY`, when set, takes precedence |
+| `ELASTIC_INCIDENTS_INDEX` | Incident index name, default `ict-incidents` |
+| `AGENT_ENGINE_ID`, `AGENT_ENGINE_USER` | Route the scoring step to a deployed Vertex AI Agent Engine (`projects/.../reasoningEngines/ID`); the user id defaults to `incidentiq-app` |
+| `PORT`, `NODE_ENV` | Server port and environment |
+
+### Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Server with `--watch` (restarts on change) |
+| `npm start` | Server |
+| `npm run setup:elastic` | One-shot Elastic setup: create the `ict-incidents` index (768-dim vector mapping), seed historical and recent incidents, and embed their descriptions |
+| `npm run eval` | Run the evaluation set |
+
 ## Deploy
 - **Google Cloud Run (primary):** `gcloud run deploy incidentiq --source . --region=europe-west1 --allow-unauthenticated --set-env-vars="GEMINI_MODEL=gemini-3-flash-preview,..."` (Dockerfile included). Cloud Run keeps the container warm, so the Elastic MCP child process is spawned once and reused.
 - The MCP server runs as a child process and needs to stay alive across requests, so a long-lived host (Cloud Run) is the supported target rather than per-request serverless.
